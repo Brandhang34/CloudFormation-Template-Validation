@@ -1,0 +1,46 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Installing cfn-lint
+      - pip install --upgrade pip
+      - pip install cfn-lint
+      - gem install cfn-nag
+      - yum install git -y
+      - pip install pre-commit
+  pre_build:
+    commands:
+      #
+      # Check if there are any templates in the current directory
+      # Store templates into a separate directory for organization
+      # (Rule that current directory will not allow templates)
+      #
+      - |
+        if [[ $(find . -maxdepth 1 -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' -o -name '*.template' \) ! -name 'buildspec.yaml' ! -name '.pre-commit-config.yaml' -print -quit) ]]; then
+          echo "A .yaml, .yml, .json or .template file exists in the current directory. Please move it to a labeled directory"
+          exit 1
+        fi
+      - git config --global user.email "{email}"
+      - git config --global user.name "{Fname Lname}"
+  build:
+    commands:
+      - echo Build started on `date`
+      # Uses the checks in the pre-commit file
+      - git init .
+      - git add .pre-commit-config.yaml
+      - git commit -m "add pre-commit hooks"
+      - pre-commit install
+      #
+      # Check all .yaml, .yml, .template, and .json template files, excluding any contents in the current working directory
+      #
+      - |
+        for template in $(find . -mindepth 2 -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' -o -name '*.template' \)); do
+          git add $template
+        done
+      - echo "************** Staged Files ************** $(git diff --name-only --cached)"
+      - git commit -a --allow-empty-message -m ''
+  post_build:
+    commands:
+      - echo Build completed on `date`
+
